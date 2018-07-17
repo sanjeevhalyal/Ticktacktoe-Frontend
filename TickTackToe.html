@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html><head>
+
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+
+
+  <script src="stomp.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+  <title>Ticktacktoe</title>
+  <link href="main.css" rel="stylesheet" type="text/css"/>
+
+<script>
+    var ip= prompt("Enter RabbitMQ server IP", "localhost");
+    var url='ws://'+ip+':15674/ws';
+    // Stomp.js boilerplate
+    var client = Stomp.client(url);
+</script>
+
+</head>
+<body lang="en" id="app" ng-app="myApp" ng-controller="ttt">
+  <div class="container">
+    <!-- Trigger the modal with a button -->
+    <button id="sermodalbut" style="display:none" type="button" ng-click="refresh()" class="btn btn-info btn-lg" data-toggle="modal" data-target="#ServerModal"
+    data-backdrop="static" data-keyboard="false"
+    >Open Modal</button>
+
+    <!-- Modal -->
+    <div class="modal fade" id="ServerModal" role="dialog">
+      <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" style="display:none">&times;</button>
+            <h4 class="modal-title">List of tictactao servers</h4>
+          </div>
+          <div class="modal-body">
+            <p>
+              <!-- <select  class="form-control" id="serverlist">
+              <option selected ng-repeat="sl in serverList" selected>{{sl.name}}</option>
+            </select> -->
+
+            <select class="form-control" id="serverlist" ng-options="sl.uuid as sl.name for sl in serverList" ng-model="region">
+              <option style="display:none" value="">Select A Server</option>
+            </select>
+          </p>
+
+        </div>
+        <div class="modal-footer">
+          <div class="row">
+            <div class="col-xs-8">
+              <div class="row">
+                <div class="col-xs-12">
+                  <p><input type="text" ng-change="checkvaliduser()"
+                    ng-model="username" class="form-control" id="Name"
+                    placeholder="Enter Name">
+                    {{usernamevalidation}}</p>
+                  </div>
+                  <div class="col-xs-12">
+                    <input type="text"
+                    ng-model="pass"
+                     class="form-control" id="Password"  placeholder="Enter Password" value="">
+                  </div>
+                </div>
+              </div>
+              <div class="col-xs-4">
+                <style>
+                #adduserbutton {
+                  font-size: 25px;
+                  color: #fff;
+                  background-color: #A9BCF5;
+                  display: block;
+                  margin-bottom: 0px;
+                  margin-left: 0px;
+                  text-align:center;
+                }
+                </style>
+
+                <button id="adduserbutton" ng-click="adduser()" class="button">
+                  Add User
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <div class="container">
+    <div class="row" id="statusinfo">
+      <div class="col-xs-8"  >
+        {{status}}
+      </div>
+    </div>
+<br/>
+    <div class="row">
+      <div id="myCanvas" class="col-xs-4 myClass" ng-repeat="bl in boxList"
+      ng-click="send(bl.id)"
+      >
+      <div  class="subclass" ng-if="bl.draw == 'O'" style="color:darkgray;text-align: center;margin: 0 auto;font-size: 400%;
+    margin-top: 15%;">
+        O
+      </div>
+      <div class="subclass" ng-if="bl.draw == 'X'" style="color:darkgray; position: relative;z-index: 10;text-align: center;margin: 0 auto;font-size: 400%;
+    margin-top: 15%;">
+        X
+      </div>
+    </div>
+
+    <button id="refreshbut" style="display:none" type="button"
+    ng-click="refresh()" >Open Modal</button>
+
+
+    <style>
+
+    #statusinfo
+    {
+       font-family: 'Enriqueta', arial, serif; line-height: 1.25; margin: 0 0 10px; font-size: 40px; font-weight: bold;
+      background-color:#FFDF40;
+     }
+    .myClass
+    {
+	background-image: radial-gradient(white,#FFFFF3,#FFFFE9,#FFE93F);
+  border:1px solid;
+  border-radius: 3px;
+  border-color: white;
+    }
+    </style>
+
+    <script>
+
+
+    var height=  $('.myClass').width();
+    $( ".myClass" ).css("padding","1px");
+    $( ".myClass" ).css("height",$('.myClass').width());
+    $( ".subclass" ).css("font-size",$('.myClass').width()/2);
+    // $( ".subclass" ).css("align-items",center);
+
+
+
+    $(window).resize(function() {
+
+      height=  $('.myClass').width();
+      $( ".myClass" ).css("padding","1px");
+      $( ".myClass" ).css("height",$('.myClass').width());
+      $( ".subclass" ).css("font-size",$('.myClass').width()/2);
+      // $( ".subclass" ).css("align-items",center);
+
+    });
+    </script>
+  </div>
+</div>
+<script>
+var app = angular.module('myApp', []);
+
+app.controller('ttt', function($scope) {
+  $scope.serverList = [];
+  $scope.boxList=[];
+  $scope.password="true";
+  $scope.usernamevalidation="";
+  $scope.username="";
+  $scope.refresh=function(){};
+  $scope.play=true;
+  $scope.status="";
+  $scope.send=function(b)
+  {
+    if(b==-1)
+    {
+      alert("Cannot Click on This Box");
+      return;
+    }
+
+    if($scope.play)
+    $scope.play=false;
+    else
+    {
+      alert("Please Wait for Other Players Turn");
+      return;
+    }
+    var serveruuid=angular.element(document.getElementById('app')).scope().server.uuid;
+    var operation="click";
+    var name=angular.element(document.getElementById('app')).scope().username;
+    var data='{"uuid":"'+uuid+'","name":"'+name+'","click":'+b+'}';
+
+    sendoperation(serveruuid,operation,data);
+
+  };
+
+  //add user
+  $scope.adduser=function()
+  {
+    //$scope.boxList[0].draw="X";
+    if($scope.username==="")
+    {
+      $scope.usernamevalidation="Enter a name";
+      return;
+    }
+    if($scope.server==="")
+    {
+      $scope.usernamevalidation="Select A Server";
+      return;
+    }
+
+    var serveruuid=$scope.server.uuid;
+    var operation="adduser";
+    var name=$scope.username;
+    var passw=$("#Password").val();
+    var data='{"uuid":"'+uuid+'","name":"'+name+'","password":"'+passw+'"}';
+
+    sendoperation(serveruuid,operation,data)
+    unsub();
+    subtoserver(serveruuid)
+
+  };
+
+  //validation
+  $scope.checkvaliduser=function()
+  {
+    var e = document.getElementById("serverlist");
+    var strUser = e.options[e.selectedIndex].value;
+    //console.log($scope.serverList);
+    if(strUser==="")
+    {
+      $scope.usernamevalidation="Select A Server";
+      $("#adduserbutton").prop('disabled', true);
+      return;
+    }
+
+    $scope.server=$scope.serverList[0];
+    if(("string:"+$scope.server.uuid) != strUser)
+    {
+      for(i=0; i<$scope.serverList.length;i++)
+      {
+        if(("string:"+$scope.serverList[i].uuid)==strUser)
+        $scope.server=$scope.serverList[i];
+      }
+    }
+
+    if($scope.server.password==='yes')
+      $("#Password").prop('disabled', false);
+
+
+
+      $scope.refresh
+    // $scope.password=$scope.server.password;
+    if($scope.server.users.indexOf($scope.username)>-1)
+    {
+      $scope.usernamevalidation=$scope.username+" is already present";
+      $("#adduserbutton").prop('disabled', true);
+    }
+    else {
+      $("#adduserbutton").prop('disabled', false);
+      $scope.usernamevalidation="";
+    }
+
+  };
+
+  //end of check validation
+
+});
+
+
+
+
+
+
+
+String.prototype.replaceAll = function(search, replacement) {
+  var target = this;
+  return target.split(search).join(replacement);
+};
+
+//subscribe to server info
+function subtoserver(suid)
+{
+  id=client.subscribe('/exchange/gameserver/from_'+suid, function(d) {
+    console.log(d.body.replaceAll("\"", "'"));
+    //game logic
+    $("#ServerModal .close").click();
+
+    var serverinfo=d.body;
+    var myJSON = JSON.parse(serverinfo);
+
+    if(myJSON.error)
+    {
+      if(myJSON.uuid===uuid)
+      {
+        confirm("Server Error:"+myJSON.error);
+        location.reload();
+      }
+      if(!myJSON.uuid)
+      {
+        confirm("Game Error:"+myJSON.error);
+        location.reload();
+      }
+      return;
+    }
+
+    var user=myJSON.user;
+    var boxlist=JSON.parse(myJSON.data.replaceAll("'","\"")).boxlist;
+    var status=JSON.parse(myJSON.data.replaceAll("'","\"")).status;
+
+    var angualarBL=angular.element(document.getElementById('app')).scope().boxList;
+    angualarBL.splice(0, 9);
+    if(uuid===user)
+    {
+      angular.element(document.getElementById('app')).scope().status='It is your turn';
+      angular.element(document.getElementById('app')).scope().play=true;
+    }
+    else {
+      angular.element(document.getElementById('app')).scope().status='Wait for your turn';
+      angular.element(document.getElementById('app')).scope().play=false;
+    }
+
+    console.log(angualarBL);
+    for(i=0;i<boxlist.length;i++)
+    {
+      if(boxlist[i].value===uuid)
+      {
+        angualarBL.push({id:-1,draw:'X'});
+      }
+      else if(boxlist[i].value==="open")
+      {
+        angualarBL.push({id:i,draw:''});
+      }
+      else {
+        angualarBL.push({id:-1,draw:'O'});
+      }
+    }
+    $("#refreshbut").click();
+    console.log(angualarBL);
+
+    if(status==="open")
+    {
+      angular.element(document.getElementById('app')).scope().status='waiting for players to join';
+      angular.element(document.getElementById('app')).scope().play=false;
+    }
+    else if(status==="playing"){
+      var st=angular.element(document.getElementById('app')).scope().status;
+      st='Game is on: '+st;
+    }
+    else
+    {
+      if(status==="User Exited")
+      {
+        alert("Other user is Disconeected");
+      }
+      else if(status===uuid){
+        alert("Congrats you Won")
+      }
+      else if(status === "draw")
+      {
+        alert("It was a no Win suitation, retry!?");
+
+      }
+      else {
+        alert("There is always a next time, The other player won this game");
+      }
+      location.reload();
+    }
+
+
+  });
+}
+
+
+//from  serverinfo request
+function unsub()
+{
+
+  id.unsubscribe();
+  console.log("Unsubscribed");
+
+};
+
+//send operations
+function sendoperation(serveruuid,operation,data)
+{
+  var json='{\'operation\':\''+operation+'\', \'data\':\''+data+'\'}';
+  client.send('/queue/'+serveruuid, {"content-type":"text/plain"}, json);
+}
+
+
+//on close
+window.onbeforeunload = closingCode;
+function closingCode(){
+  var serveruuid=angular.element(document.getElementById('app')).scope().server.uuid;
+  var operation="removeuser";
+  var name=angular.element(document.getElementById('app')).scope().username;
+  var data='{"uuid":"'+uuid+'","name":"'+name+'"}';
+
+  sendoperation(serveruuid,operation,data);
+  unsub();
+}
+
+//intialization
+function s4() {
+  return Math.floor((1 + Math.random()) * 0x10000)
+  .toString(16)
+  .substring(1);
+};
+var id;
+var uuid=s4() + s4() + '-' + s4() + '-' + s4() + '-' + s4() + '-' + s4() + s4() + s4();
+var initjson='{ "uuid":"'+uuid+'", "type":"tictactao"}';
+
+
+
+//request data and update list
+var on_connect = function(x) {
+  console.log("connected");
+  client.send('/exchange/requestinfo/ticktacktoe', {"content-type":"text/plain"}, initjson);
+  id = client.subscribe('/queue/'+uuid, function(d) {
+
+    var serverinfo=d.body;
+    console.log(d.body);
+    var myJSON = JSON.parse(serverinfo);
+    console.log(myJSON.name);
+    if(myJSON.error)
+    {
+      return;
+    }
+
+    angular.element(document.getElementById('app')).scope().serverList.push(myJSON);
+    angular.element(document.getElementById('app')).scope().server="";
+  });
+
+
+  $("#Password").prop('disabled', true);
+
+
+  setTimeout(function() {
+    if(!angular.element(document.getElementById('app')).scope().serverList.length)
+    {
+      if (confirm("no server, click ok to refresh or no to visit us later website")) {
+        location.reload();
+      }
+      return
+    }
+    $("#sermodalbut").click();
+  }, 2000);
+
+};
+
+//log on error
+
+var on_error =  function() {
+  alert('error');
+};
+
+
+
+client.connect('guest', 'guest', on_connect, on_error, '/');
+
+
+
+</script>
+</body>
+</html>
